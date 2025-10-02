@@ -193,17 +193,84 @@
       alert('ยกเลิกเรียบร้อย');
     }
 
-    checkBtn.onclick = ()=>{
-      const date = dateEl.value; const start = startEl.value; const end = endEl.value; const name = nameEl.value.trim(); const phone = phoneEl.value.trim();
-      if(!date || !start || !end){ statusEl.innerText = 'กรุณาเลือกวันที่และเวลาให้ครบ'; return }
-      if(end <= start){ statusEl.innerText = 'เวลาไม่ถูกต้อง: เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม'; return }
-      const ok = checkAvailability(selectedRoom,date,start,end);
-      if(!ok){ statusEl.innerText = 'สถานะ: ไม่ว่าง (มีการจองทับ)'; return }
-      // ถ้าว่าง ให้จอง
-      const b = { id:uid(), room:selectedRoom, date, start, end, name, phone, createdAt:new Date().toISOString() }
-      const list = loadBookings(); list.push(b); saveBookings(list);
-      statusEl.innerText = 'จองสำเร็จ! ระบบได้บันทึกการจองแล้ว';
-      renderBookings();
+checkBtn.onclick = () => {
+  const date = dateEl.value; 
+  const start = startEl.value; 
+  const end = endEl.value; 
+  const name = nameEl.value.trim(); 
+  const phone = phoneEl.value.trim();
+
+  if(!date || !start || !end){ 
+    statusEl.innerText = 'กรุณาเลือกวันที่และเวลาให้ครบ'; 
+    return;
+  }
+  if(end <= start){ 
+    statusEl.innerText = 'เวลาไม่ถูกต้อง: เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม'; 
+    return;
+  }
+  const ok = checkAvailability(selectedRoom,date,start,end);
+  if(!ok){ 
+    statusEl.innerText = 'สถานะ: ไม่ว่าง (มีการจองทับ)'; 
+    return;
+  }
+
+  // ถ้าว่าง ให้จอง
+  const b = { 
+    id: uid(), 
+    room: selectedRoom, 
+    date, 
+    start, 
+    end, 
+    name, 
+    phone, 
+    createdAt: new Date().toISOString() 
+  };
+  const list = loadBookings(); 
+  list.push(b); 
+  saveBookings(list);
+
+  statusEl.innerText = 'จองสำเร็จ! ระบบได้บันทึกการจองแล้ว';
+  renderBookings();
+
+  // ✅ NEW: Push to Google Sheets
+  fetch("https://script.google.com/macros/s/AKfycbxg2YfejO3rZXbiOXf-Rpspd-THhMWWBxRC-QdKwHVPSfzG2y_KIDnEyZtjAijeZ9sNHg/exec", {
+    method: "POST",
+    body: JSON.stringify({
+      id: b.id,
+      room: b.room,
+      roomName: ROOMS.find(r => r.id === b.room).name,
+      date: b.date,
+      start: b.start,
+      end: b.end,
+      name: b.name,
+      phone: b.phone,
+      createdAt: b.createdAt
+    }),
+    headers: { "Content-Type": "application/json" }
+  })
+  .then(res => res.text())
+  .then(txt => console.log("Google Sheets response:", txt))
+  .catch(err => console.error("Error sending to Sheets:", err));
+
+  // แจ้งเตือนเบราเซอร์ (ถ้าอนุญาต)
+  if(window.Notification && Notification.permission==='granted'){
+    new Notification('การจองสำเร็จ', {
+      body:`${b.name||'ผู้ใช้'} จอง${selectedRoom} ${b.date} ${b.start}-${b.end}`
+    });
+  }
+
+  // SMS (เหมือนเดิม)
+  const smsBody = encodeURIComponent(`จองห้อง: ${ROOMS.find(r=>r.id===b.room).name}%0Aวันที่: ${b.date}%0Aเวลา: ${b.start} - ${b.end}%0Aผู้จอง: ${b.name}%0Aเบอร์: ${b.phone}`);
+  if(b.phone){
+    setTimeout(()=>{
+      if(confirm('ต้องการเปิดแอปส่งข้อความบนมือถือเพื่อส่งข้อมูลการจอง (เปิดเฉพาะบนมือถือ)?')){
+        location.href = `sms:${b.phone}?body=${smsBody}`;
+      }
+    },200);
+  }
+}
+
+
 
       // แจ้งเตือนเบราเซอร์ (ถ้าอนุญาต)
       if(window.Notification && Notification.permission==='granted'){
@@ -261,3 +328,4 @@
   </script>
 </body>
 </html>
+
