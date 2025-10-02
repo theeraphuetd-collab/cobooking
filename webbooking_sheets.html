@@ -203,7 +203,7 @@
       const b = { id:uid(), room:selectedRoom, date, start, end, name, phone, createdAt:new Date().toISOString() }
       const list = loadBookings(); list.push(b); saveBookings(list);
   // ✅ NEW: Push to Google Sheets
-  fetch("YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL", {
+  fetch("https://script.google.com/macros/s/AKfycbxg2YfejO3rZXbiOXf-Rpspd-THhMWWBxRC-QdKwHVPSfzG2y_KIDnEyZtjAijeZ9sNHg/exec", {
     method: "POST",
     body: JSON.stringify({
       id: b.id,
