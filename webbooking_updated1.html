@@ -202,27 +202,25 @@
       // ถ้าว่าง ให้จอง
       const b = { id:uid(), room:selectedRoom, date, start, end, name, phone, createdAt:new Date().toISOString() }
       const list = loadBookings(); list.push(b); saveBookings(list);
-  // ✅ NEW: Push to Google Sheets
+  // ✅ NEW: Push to Google Sheets (Form Data version)
   const params = new URLSearchParams();
-params.append("id", b.id);
-params.append("room", b.room);
-params.append("roomName", ROOMS.find(r => r.id === b.room).name);
-params.append("date", b.date);
-params.append("start", b.start);
-params.append("end", b.end);
-params.append("name", b.name);
-params.append("phone", b.phone);
-params.append("createdAt", b.createdAt);
+  params.append("id", b.id);
+  params.append("room", b.room);
+  params.append("roomName", ROOMS.find(r => r.id === b.room).name);
+  params.append("date", b.date);
+  params.append("start", b.start);
+  params.append("end", b.end);
+  params.append("name", b.name);
+  params.append("phone", b.phone);
+  params.append("createdAt", b.createdAt);
 
-fetch("https://script.google.com/macros/s/AKfycbybgYq7pU-wCPKfYimRg4ucnR-rx7hxDvP32DnECUTnnEnv_OJOMKarlfE-MTsuUdbeSQ/exec", {
-  method: "POST",
-  body: params
-});
-
-.then(res => res.text())
-.then(txt => console.log("Sheets response:", txt))
-.catch(err => console.error("Error:", err));
-
+  fetch("https://script.google.com/macros/s/AKfycbybgYq7pU-wCPKfYimRg4ucnR-rx7hxDvP32DnECUTnnEnv_OJOMKarlfE-MTsuUdbeSQ/exec", {
+    method: "POST",
+    body: params
+  })
+  .then(res => res.text())
+  .then(txt => console.log("Google Sheets response:", txt))
+  .catch(err => console.error("Error sending to Sheets:", err));
 
       statusEl.innerText = 'จองสำเร็จ! ระบบได้บันทึกการจองแล้ว';
       renderBookings();
