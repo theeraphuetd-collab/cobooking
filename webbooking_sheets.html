@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ระบบจองห้อง (ตัวอย่าง)</title>
+  <style>
+    :root{--bg:#0f172a;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;--glass:rgba(255,255,255,0.03)}
+    *{box-sizing:border-box;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans Thai',sans-serif}
+    body{margin:0;background:linear-gradient(180deg,#071023 0%, #07162a 100%);color:#e6eef6;padding:20px}
+    .container{max-width:1000px;margin:0 auto}
+    header{display:flex;gap:16px;align-items:center;justify-content:space-between}
+    h1{margin:0;font-size:20px}
+    .grid{display:grid;grid-template-columns:1fr 380px;gap:16px;margin-top:18px}
+    .card{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+    .rooms{display:flex;flex-wrap:wrap;gap:8px}
+    .room{padding:8px 12px;border-radius:8px;background:var(--glass);cursor:pointer;border:1px solid rgba(255,255,255,0.03)}
+    .room.active{outline:2px solid var(--accent);background:linear-gradient(90deg, rgba(6,182,212,0.08), rgba(6,182,212,0.03))}
+    label{display:block;font-size:13px;margin-top:10px;color:var(--muted)}
+    input,select,button{width:100%;padding:8px 10px;margin-top:6px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:#071025;color:inherit}
+    .btn{background:var(--accent);border:none;color:#031022;padding:10px 14px;font-weight:600;cursor:pointer}
+    .list{max-height:420px;overflow:auto;margin-top:10px}
+    .booking{padding:10px;border-radius:8px;margin-bottom:8px;background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));display:flex;justify-content:space-between;align-items:center}
+    .muted{color:var(--muted);font-size:13px}
+    .flex{display:flex;gap:8px;align-items:center}
+    .small{font-size:13px}
+    footer{margin-top:12px;color:var(--muted);font-size:13px}
+    @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>ระบบจองห้อง (ตัวอย่าง)</h1>
+      <div class="muted">บันทึกในเครื่อง (localStorage) — ต้องการเซิร์ฟเวอร์แจ้งได้</div>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <div>
+          <strong>เลือกห้อง</strong>
+          <div class="rooms" id="rooms"></div>
+        </div>
+
+        <div style="margin-top:12px">
+          <label>วันที่</label>
+          <input type="date" id="date" />
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <div style="flex:1">
+              <label>เวลาเริ่ม</label>
+              <input type="time" id="start" />
+            </div>
+            <div style="flex:1">
+              <label>เวลาสิ้นสุด</label>
+              <input type="time" id="end" />
+            </div>
+          </div>
+
+          <label>ชื่อผู้จอง</label>
+          <input id="name" placeholder="ชื่อ-นามสกุล" />
+
+          <label>เบอร์โทรศัพท์ (สำหรับส่ง SMS / เปิดบนมือถือ)</label>
+          <input id="phone" placeholder="เช่น 0812345678" />
+
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn" id="checkBtn">ตรวจสอบสถานะ / จอง</button>
+            <button id="exportBtn">ส่งออก (CSV)</button>
+          </div>
+
+          <div id="status" class="muted small" style="margin-top:8px"></div>
+        </div>
+
+        <div style="margin-top:14px">
+          <strong>คำชี้แจง</strong>
+          <div class="muted small">ระบบตัวอย่างเก็บข้อมูลในเครื่อง (localStorage). ถ้าต้องการเก็บศูนย์กลาง/แจ้งเตือนจริงบนมือถือ ต้องมีเซิร์ฟเวอร์หรือบริการ SMS (เช่น Twilio) — ถ้าต้องการฉันช่วยต่อให้ได้</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div><strong>รายการการจอง (วันที่เลือก)</strong><div class="muted small" id="selectedDateText"></div></div>
+          <div class="muted small">จำนวนทั้งหมด: <span id="count">0</span></div>
+        </div>
+        <div class="list" id="bookingsList"></div>
+
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button id="notifyBtn">ขออนุญาตแจ้งเตือนเบราเซอร์</button>
+          <button id="clearBtn">ล้างข้อมูลตัวอย่าง</button>
+        </div>
+
+      </div>
+    </div>
+
+    <footer>ตัวอย่าง: หากต้องการให้บันทึกลงเซิร์ฟเวอร์/ส่ง SMS อัตโนมัติ ฉันต่อ API ให้ได้ — บอกมาได้เลย</footer>
+  </div>
+
+  <script>
+    // ตั้งค่าเริ่มต้นของห้อง (ปรับให้ตรงกับสเปรดชีตของคุณได้)
+    const ROOMS = [
+      {id:'room-a', name:'ห้อง A (ประชุม)'},
+      {id:'room-b', name:'ห้อง B (ประชุม)'},
+      {id:'lab-1', name:'ห้องปฏิบัติการ 1'},
+      {id:'lab-2', name:'ห้องปฏิบัติการ 2'}
+    ];
+
+    // localStorage key
+    const STORAGE_KEY = 'booking_system_v1';
+
+    // ชิ้นส่วน DOM
+    const roomsEl = document.getElementById('rooms');
+    const dateEl = document.getElementById('date');
+    const startEl = document.getElementById('start');
+    const endEl = document.getElementById('end');
+    const nameEl = document.getElementById('name');
+    const phoneEl = document.getElementById('phone');
+    const statusEl = document.getElementById('status');
+    const checkBtn = document.getElementById('checkBtn');
+    const bookingsList = document.getElementById('bookingsList');
+    const selectedDateText = document.getElementById('selectedDateText');
+    const countEl = document.getElementById('count');
+    const notifyBtn = document.getElementById('notifyBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const exportBtn = document.getElementById('exportBtn');
+
+    let selectedRoom = ROOMS[0].id;
+
+    // สร้างปุ่มห้อง
+    function renderRooms(){
+      roomsEl.innerHTML = '';
+      ROOMS.forEach(r=>{
+        const b = document.createElement('div');
+        b.className = 'room' + (r.id===selectedRoom ? ' active':'');
+        b.innerText = r.name;
+        b.onclick = ()=>{ selectedRoom = r.id; renderRooms(); renderBookings(); }
+        roomsEl.appendChild(b);
+      })
+    }
+
+    function loadBookings(){
+      try{ return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') }catch(e){return []}
+    }
+    function saveBookings(list){ localStorage.setItem(STORAGE_KEY, JSON.stringify(list)) }
+
+    function iso(dt){ return new Date(dt).toISOString() }
+
+    function formatTime(t){ return t }
+
+    function bookingsFor(room, date){
+      const list = loadBookings();
+      return list.filter(b=>b.room===room && b.date===date).sort((a,b)=>a.start.localeCompare(b.start));
+    }
+
+    function overlaps(startA,endA,startB,endB){
+      return !(endA <= startB || startA >= endB);
+    }
+
+    function checkAvailability(room,date,start,end){
+      const list = bookingsFor(room,date);
+      for(const b of list){ if(overlaps(start,end,b.start,b.end)) return false }
+      return true;
+    }
+
+    function renderBookings(){
+      const date = dateEl.value;
+      selectedDateText.innerText = date ? date : '(ยังไม่ได้เลือกวันที่)';
+      bookingsList.innerHTML = '';
+      if(!date){ countEl.innerText = '0'; return }
+      const list = bookingsFor(selectedRoom,date);
+      countEl.innerText = list.length;
+      if(list.length===0){ bookingsList.innerHTML = '<div class="muted small" style="padding:8px">ยังไม่มีการจองสำหรับวันที่เลือก</div>'; return }
+      list.forEach(b=>{
+        const div = document.createElement('div'); div.className='booking';
+        div.innerHTML = `<div>
+            <div><strong>${b.name || '-'} — ${b.phone || '-'}</strong></div>
+            <div class="muted small">${b.date} ${b.start} - ${b.end}</div>
+          </div>
+          <div class="flex">
+            <button onclick='cancelBooking("${b.id}")'>ยกเลิก</button>
+          </div>`
+        bookingsList.appendChild(div);
+      })
+    }
+
+    // สร้าง id แบบง่าย
+    function uid(){ return 'b_'+Math.random().toString(36).slice(2,9) }
+
+    window.cancelBooking = function(id){
+      if(!confirm('ต้องการยกเลิกการจองนี้หรือไม่?')) return;
+      let list = loadBookings();
+      list = list.filter(x=>x.id!==id);
+      saveBookings(list);
+      renderBookings();
+      alert('ยกเลิกเรียบร้อย');
+    }
+
+    checkBtn.onclick = ()=>{
+      const date = dateEl.value; const start = startEl.value; const end = endEl.value; const name = nameEl.value.trim(); const phone = phoneEl.value.trim();
+      if(!date || !start || !end){ statusEl.innerText = 'กรุณาเลือกวันที่และเวลาให้ครบ'; return }
+      if(end <= start){ statusEl.innerText = 'เวลาไม่ถูกต้อง: เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม'; return }
+      const ok = checkAvailability(selectedRoom,date,start,end);
+      if(!ok){ statusEl.innerText = 'สถานะ: ไม่ว่าง (มีการจองทับ)'; return }
+      // ถ้าว่าง ให้จอง
+      const b = { id:uid(), room:selectedRoom, date, start, end, name, phone, createdAt:new Date().toISOString() }
+      const list = loadBookings(); list.push(b); saveBookings(list);
+  // ✅ NEW: Push to Google Sheets
+  fetch("YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL", {
+    method: "POST",
+    body: JSON.stringify({
+      id: b.id,
+      room: b.room,
+      roomName: ROOMS.find(r => r.id === b.room).name,
+      date: b.date,
+      start: b.start,
+      end: b.end,
+      name: b.name,
+      phone: b.phone,
+      createdAt: b.createdAt
+    }),
+    headers: { "Content-Type": "application/json" }
+  })
+  .then(res => res.text())
+  .then(txt => console.log("Google Sheets response:", txt))
+  .catch(err => console.error("Error sending to Sheets:", err));
+
+      statusEl.innerText = 'จองสำเร็จ! ระบบได้บันทึกการจองแล้ว';
+      renderBookings();
+
+      // แจ้งเตือนเบราเซอร์ (ถ้าอนุญาต)
+      if(window.Notification && Notification.permission==='granted'){
+        new Notification('การจองสำเร็จ', {body:`${b.name||'ผู้ใช้'} จอง${selectedRoom} ${b.date} ${b.start}-${b.end}`});
+      }
+
+      // สร้าง sms link สำหรับมือถือ (user ต้องกดด้วยตนเอง)
+      const smsBody = encodeURIComponent(`จองห้อง: ${ROOMS.find(r=>r.id===b.room).name}%0Aวันที่: ${b.date}%0Aเวลา: ${b.start} - ${b.end}%0Aผู้จอง: ${b.name}%0Aเบอร์: ${b.phone}`)
+      // ถ้ามีเบอร์ ให้เปิดลิงก์ sms:
+      if(b.phone){
+        // แสดงปุ่มสำหรับเปิด sms
+        setTimeout(()=>{
+          if(confirm('ต้องการเปิดแอปส่งข้อความบนมือถือเพื่อส่งข้อมูลการจอง (เปิดเฉพาะบนมือถือ)?')){
+            location.href = `sms:${b.phone}?body=${smsBody}`
+          }
+        },200)
+      }
+    }
+
+    notifyBtn.onclick = async ()=>{
+      if(!('Notification' in window)){ alert('เบราเซอร์นี้ไม่รองรับการแจ้งเตือน'); return }
+      const perm = await Notification.requestPermission();
+      alert('สถานะสิทธิ์แจ้งเตือน: '+perm);
+    }
+
+    clearBtn.onclick = ()=>{
+      if(confirm('ต้องการล้างข้อมูลการจองทั้งหมดออกจากเครื่องหรือไม่?')){
+        localStorage.removeItem(STORAGE_KEY);
+        renderBookings();
+        alert('ล้างข้อมูลเรียบร้อย');
+      }
+    }
+
+    exportBtn.onclick = ()=>{
+      const list = loadBookings();
+      if(list.length===0){ alert('ไม่มีข้อมูลให้ส่งออก'); return }
+      const rows = [['id','room','roomName','date','start','end','name','phone','createdAt']];
+      list.forEach(b=>rows.push([b.id,b.room,ROOMS.find(r=>r.id===b.room).name,b.date,b.start,b.end,b.name,b.phone,b.createdAt]));
+      const csv = rows.map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv],{type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'bookings.csv'; a.click(); URL.revokeObjectURL(url);
+    }
+
+    // เริ่มต้น
+    (function init(){
+      renderRooms();
+      const today = new Date().toISOString().slice(0,10);
+      dateEl.value = today;
+      renderBookings();
+      dateEl.onchange = renderBookings;
+      startEl.value = '09:00'; endEl.value='10:00';
+    })();
+
+  </script>
+</body>
+</html>
